@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,8 +10,35 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from 'expo-router';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { getDatabase, ref, set, serverTimestamp } from 'firebase/database';
+
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCtOXxBah2JMg07PJx0c89TUJvQ8n7w8xU",
+  authDomain: "outfit-genie-43a61.firebaseapp.com",
+  databaseURL: "https://outfit-genie-43a61-default-rtdb.firebaseio.com",
+  projectId: "outfit-genie-43a61",
+  storageBucket: "outfit-genie-43a61.appspot.com",
+  messagingSenderId: "937210777776",
+  appId: "1:937210777776:web:YOUR_APP_ID" // Replace with your actual App ID
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const database = getDatabase(app);
 
 const { width, height } = Dimensions.get("window");
 
@@ -21,18 +48,107 @@ const OutfitGenieLogin = () => {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in, navigate to the explore page
+        router.replace('/explore');
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
+
+  // Handle login with Firebase
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Email and password are required");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log("User logged in successfully");
+      // Navigation will be handled by the onAuthStateChanged listener
+    } catch (error) {
+      console.error("Login error:", error);
+      Alert.alert("Login Failed", error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle signup with Firebase
+  const handleSignup = async () => {
+    if (!email || !password || !name) {
+      Alert.alert("Error", "All fields are required");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Create user with email and password
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Save additional user data to Realtime Database
+      await set(ref(database, `users/${user.uid}`), {
+        fullName: name,
+        email: email,
+        createdAt: serverTimestamp()
+      });
+      
+      console.log("User account created & signed in!");
+      // Navigation will be handled by the onAuthStateChanged listener
+    } catch (error) {
+      console.error("Signup error:", error);
+      Alert.alert("Signup Failed", error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle forgot password
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert("Error", "Please enter your email address");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert(
+        "Password Reset",
+        "Password reset email sent. Check your inbox."
+      );
+    } catch (error) {
+      console.error("Password reset error:", error);
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = () => {
-    setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      console.log(isLogin ? "Logging in..." : "Signing up...", { email, password, name });
-    }, 1500);
+    if (isLogin) {
+      handleLogin();
+    } else {
+      handleSignup();
+    }
   };
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
+    setErrorMessage("");
   };
 
   return (
@@ -62,6 +178,12 @@ const OutfitGenieLogin = () => {
                   </Text>
                 )}
               </View>
+
+              {errorMessage ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              ) : null}
 
               <View style={styles.formContainer}>
                 {!isLogin && (
@@ -101,7 +223,7 @@ const OutfitGenieLogin = () => {
 
                 {isLogin && (
                   <View style={{ alignSelf: "flex-end", marginBottom: 24 }}>
-                    <TouchableOpacity>
+                    <TouchableOpacity onPress={handleForgotPassword}>
                       <Text style={styles.forgotPasswordText}>Forgot password?</Text>
                     </TouchableOpacity>
                   </View>
@@ -186,10 +308,25 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   tagline: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "500",
     color: "#146E5F",
     letterSpacing: 0.3,
+    marginTop: 15,
+  },
+  errorContainer: {
+    backgroundColor: "rgba(255, 99, 71, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 99, 71, 0.5)",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 20,
+    width: "100%",
+  },
+  errorText: {
+    color: "#D32F2F",
+    fontSize: 14,
+    textAlign: "center",
   },
   formContainer: {
     width: "100%",
@@ -215,7 +352,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     marginVertical: 8,
-    backgroundColor: "#20B2AA", // Light Sea Green
+    backgroundColor: "#20B2AA",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
