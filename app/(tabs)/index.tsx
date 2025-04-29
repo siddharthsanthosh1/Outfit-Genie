@@ -14,31 +14,15 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from 'expo-router';
-import { initializeApp } from 'firebase/app';
 import { 
-  getAuth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   onAuthStateChanged 
 } from 'firebase/auth';
-import { getDatabase, ref, set, serverTimestamp } from 'firebase/database';
-
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCtOXxBah2JMg07PJx0c89TUJvQ8n7w8xU",
-  authDomain: "outfit-genie-43a61.firebaseapp.com",
-  databaseURL: "https://outfit-genie-43a61-default-rtdb.firebaseio.com",
-  projectId: "outfit-genie-43a61",
-  storageBucket: "outfit-genie-43a61.appspot.com",
-  messagingSenderId: "937210777776",
-  appId: "1:937210777776:web:YOUR_APP_ID" // Replace with your actual App ID
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const database = getDatabase(app);
+import { ref, set, serverTimestamp } from 'firebase/database';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { auth, database } from '@/config/firebase';
 
 const { width, height } = Dimensions.get("window");
 
@@ -50,55 +34,49 @@ const OutfitGenieLogin = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Check if user is already logged in
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // User is signed in, navigate to the explore page
         router.replace('/explore');
       }
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
-  // Handle login with Firebase
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Email and password are required");
+      setErrorMessage("Email and password are required");
       return;
     }
 
     setIsLoading(true);
+    setErrorMessage("");
     
     try {
       await signInWithEmailAndPassword(auth, email, password);
       console.log("User logged in successfully");
-      // Navigation will be handled by the onAuthStateChanged listener
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
-      Alert.alert("Login Failed", error.message);
+      setErrorMessage(error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle signup with Firebase
   const handleSignup = async () => {
     if (!email || !password || !name) {
-      Alert.alert("Error", "All fields are required");
+      setErrorMessage("All fields are required");
       return;
     }
 
     setIsLoading(true);
+    setErrorMessage("");
     
     try {
-      // Create user with email and password
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // Save additional user data to Realtime Database
       await set(ref(database, `users/${user.uid}`), {
         fullName: name,
         email: email,
@@ -106,23 +84,22 @@ const OutfitGenieLogin = () => {
       });
       
       console.log("User account created & signed in!");
-      // Navigation will be handled by the onAuthStateChanged listener
-    } catch (error) {
+    } catch (error: any) {
       console.error("Signup error:", error);
-      Alert.alert("Signup Failed", error.message);
+      setErrorMessage(error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle forgot password
   const handleForgotPassword = async () => {
     if (!email) {
-      Alert.alert("Error", "Please enter your email address");
+      setErrorMessage("Please enter your email address");
       return;
     }
 
     setIsLoading(true);
+    setErrorMessage("");
     
     try {
       await sendPasswordResetEmail(auth, email);
@@ -130,9 +107,9 @@ const OutfitGenieLogin = () => {
         "Password Reset",
         "Password reset email sent. Check your inbox."
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Password reset error:", error);
-      Alert.alert("Error", error.message);
+      setErrorMessage(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -152,114 +129,116 @@ const OutfitGenieLogin = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" />
 
-      {/* Mint to Teal gradient background */}
-      <LinearGradient
-        colors={["#DCFFF9", "#88D8C0"]}
-        style={styles.backgroundGradient}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 0.8 }}
-      />
+        {/* Mint to Teal gradient background */}
+        <LinearGradient
+          colors={["#DCFFF9", "#88D8C0"]}
+          style={styles.backgroundGradient}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 0.8 }}
+        />
 
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"} 
-          style={styles.keyboardAvoid}
-        >
-          <View style={styles.content}>
-            <View style={styles.contentInner}>
-              <View style={styles.header}>
-                <Text style={styles.appName}>Outfit Genie</Text>
-                {!isLoading && (
-                  <Text style={styles.tagline}>
-                    {isLogin ? "Welcome back" : "Create your account"}
-                  </Text>
-                )}
-              </View>
-
-              {errorMessage ? (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{errorMessage}</Text>
+        <SafeAreaView style={styles.safeArea}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"} 
+            style={styles.keyboardAvoid}
+          >
+            <View style={styles.content}>
+              <View style={styles.contentInner}>
+                <View style={styles.header}>
+                  <Text style={styles.appName}>Outfit Genie</Text>
+                  {!isLoading && (
+                    <Text style={styles.tagline}>
+                      {isLogin ? "Welcome back" : "Create your account"}
+                    </Text>
+                  )}
                 </View>
-              ) : null}
 
-              <View style={styles.formContainer}>
-                {!isLogin && (
+                {errorMessage ? (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.formContainer}>
+                  {!isLogin && (
+                    <View style={styles.inputWrapper}>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Full Name"
+                        placeholderTextColor="rgba(20, 110, 95, 0.6)"
+                        value={name}
+                        onChangeText={setName}
+                      />
+                    </View>
+                  )}
+
                   <View style={styles.inputWrapper}>
                     <TextInput
                       style={styles.input}
-                      placeholder="Full Name"
+                      placeholder="Email"
                       placeholderTextColor="rgba(20, 110, 95, 0.6)"
-                      value={name}
-                      onChangeText={setName}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={email}
+                      onChangeText={setEmail}
                     />
                   </View>
-                )}
 
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Email"
-                    placeholderTextColor="rgba(20, 110, 95, 0.6)"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    value={email}
-                    onChangeText={setEmail}
-                  />
-                </View>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Password"
+                      placeholderTextColor="rgba(20, 110, 95, 0.6)"
+                      secureTextEntry
+                      value={password}
+                      onChangeText={setPassword}
+                    />
+                  </View>
 
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor="rgba(20, 110, 95, 0.6)"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                  />
-                </View>
+                  {isLogin && (
+                    <View style={{ alignSelf: "flex-end", marginBottom: 24 }}>
+                      <TouchableOpacity onPress={handleForgotPassword}>
+                        <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
-                {isLogin && (
-                  <View style={{ alignSelf: "flex-end", marginBottom: 24 }}>
-                    <TouchableOpacity onPress={handleForgotPassword}>
-                      <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                  <View>
+                    <TouchableOpacity  
+                      style={styles.button} 
+                      onPress={handleSubmit} 
+                      disabled={isLoading}
+                      activeOpacity={0.9}
+                    >
+                      <View style={styles.buttonContent}>
+                        <Text style={styles.buttonText}>
+                          {isLoading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
                   </View>
-                )}
 
-                <View>
-                  <TouchableOpacity 
-                    style={styles.button} 
-                    onPress={handleSubmit} 
-                    disabled={isLoading}
-                    activeOpacity={0.9}
-                  >
-                    <View style={styles.buttonContent}>
-                      <Text style={styles.buttonText}>
-                        {isLoading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.switchContainer}>
-                  <Text style={styles.switchText}>
-                    {isLogin ? "Don't have an account?" : "Already have an account?"}
-                  </Text>
-                  <TouchableOpacity onPress={toggleAuthMode}>
-                    <Text style={styles.switchActionText}>
-                      {isLogin ? "Sign Up" : "Sign In"}
+                  <View style={styles.switchContainer}>
+                    <Text style={styles.switchText}>
+                      {isLogin ? "Don't have an account?" : "Already have an account?"}
                     </Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity onPress={toggleAuthMode}>
+                      <Text style={styles.switchActionText}>
+                        {isLogin ? "Sign Up" : "Sign In"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </View>
+    </GestureHandlerRootView>
   );
 };
 
